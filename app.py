@@ -19,6 +19,7 @@ from manutencao import TelaManutencao
 from relatorio import gerar_pdf_afastamentos, gerar_pdf_gestantes, gerar_excel_afastamentos, gerar_excel_gestantes
 from gestante import TelaGestante
 from manutencao_gestante import TelaManutencaoGestante
+from manutencao_revisao import TelaManutencaoRevisao
 
 class DateEntryLivre(DateEntry):
     def __init__(self, *args, **kwargs):
@@ -121,33 +122,63 @@ class SistemaAfastamentos:
         btn_limpar = tk.Button(f_row1, text="Limpar Filtros", command=self.limpar_filtros, bg="#9CA3AF", fg="white", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2")
         btn_limpar.pack(side="left", padx=15)
 
-        f_row2 = tk.Frame(frame_filtros, bg="#FFFFFF")
-        f_row2.pack(fill="x")
-
-        tk.Label(f_row2, text="Tipos:", bg="white", font=("Segoe UI", 9, "bold"), fg="#1D4ED8").pack(side="left", padx=(5, 5))
+        # ---- LINHA DE FILTROS 2: AFASTAMENTOS E GESTANTES ----
+        self.f_row2 = tk.Frame(frame_filtros, bg="#FFFFFF")
+        
+        tk.Label(self.f_row2, text="Tipos:", bg="white", font=("Segoe UI", 9, "bold"), fg="#1D4ED8").pack(side="left", padx=(5, 5))
         
         self.var_t_doenca = tk.IntVar(value=1)
-        tk.Checkbutton(f_row2, text="Doença", variable=self.var_t_doenca, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Doença", variable=self.var_t_doenca, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
         self.var_t_acidente = tk.IntVar(value=1)
-        tk.Checkbutton(f_row2, text="Acidente", variable=self.var_t_acidente, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Acidente", variable=self.var_t_acidente, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
         self.var_t_carcere = tk.IntVar(value=1)
-        tk.Checkbutton(f_row2, text="Cárcere", variable=self.var_t_carcere, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Cárcere", variable=self.var_t_carcere, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
         self.var_t_militar = tk.IntVar(value=1)
-        tk.Checkbutton(f_row2, text="Militar", variable=self.var_t_militar, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Militar", variable=self.var_t_militar, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
         self.var_t_maternidade = tk.IntVar(value=1)
-        tk.Checkbutton(f_row2, text="Maternidade", variable=self.var_t_maternidade, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Maternidade", variable=self.var_t_maternidade, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
         self.var_t_outros = tk.IntVar(value=1)
-        tk.Checkbutton(f_row2, text="Outros", variable=self.var_t_outros, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Outros", variable=self.var_t_outros, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
 
-        ttk.Separator(f_row2, orient="vertical").pack(side="left", fill="y", padx=20)
+        ttk.Separator(self.f_row2, orient="vertical").pack(side="left", fill="y", padx=20)
 
-        tk.Label(f_row2, text="Status:", bg="white", font=("Segoe UI", 9, "bold"), fg="#1D4ED8").pack(side="left", padx=(5, 5))
+        tk.Label(self.f_row2, text="Status:", bg="white", font=("Segoe UI", 9, "bold"), fg="#1D4ED8").pack(side="left", padx=(5, 5))
         
         self.var_s_ativo = tk.IntVar(value=1)
-        tk.Checkbutton(f_row2, text="Ativos (Afastado / Gestante)", variable=self.var_s_ativo, bg="white", font=fonte_ent, fg="#B45309", command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Ativos (Afastado / Gestante)", variable=self.var_s_ativo, bg="white", font=fonte_ent, fg="#B45309", command=self.filtrar_dados).pack(side="left", padx=2)
         
         self.var_s_inativo = tk.IntVar(value=0)
-        tk.Checkbutton(f_row2, text="Baixados (Retornou / Concluído)", variable=self.var_s_inativo, bg="white", font=fonte_ent, fg="#15803D", command=self.filtrar_dados).pack(side="left", padx=2)
+        tk.Checkbutton(self.f_row2, text="Baixados (Retornou / Concluído)", variable=self.var_s_inativo, bg="white", font=fonte_ent, fg="#15803D", command=self.filtrar_dados).pack(side="left", padx=2)
+
+        self.f_row2.pack(fill="x") # Exibida por defeito
+
+        # ---- LINHA DE FILTROS 3: EXCLUSIVA PARA RECURSOS ----
+        self.f_row_recursos = tk.Frame(frame_filtros, bg="#FFFFFF")
+        
+        tk.Label(self.f_row_recursos, text="Tipos (Recursos):", bg="white", font=("Segoe UI", 9, "bold"), fg="#D97706").pack(side="left", padx=(5, 5))
+        
+        self.var_tr_revisao = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Revisão", variable=self.var_tr_revisao, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        self.var_tr_recurso = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Recurso", variable=self.var_tr_recurso, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        self.var_tr_contestacao = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Contestação", variable=self.var_tr_contestacao, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        self.var_tr_acao = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Ação Judicial", variable=self.var_tr_acao, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+        self.var_tr_vazio = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Não Definido", variable=self.var_tr_vazio, bg="white", font=fonte_ent, command=self.filtrar_dados).pack(side="left", padx=2)
+
+        ttk.Separator(self.f_row_recursos, orient="vertical").pack(side="left", fill="y", padx=20)
+
+        tk.Label(self.f_row_recursos, text="Status:", bg="white", font=("Segoe UI", 9, "bold"), fg="#D97706").pack(side="left", padx=(5, 5))
+        
+        self.var_sr_aberto = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Aberto", variable=self.var_sr_aberto, bg="white", font=fonte_ent, fg="#B45309", command=self.filtrar_dados).pack(side="left", padx=2)
+        self.var_sr_deferido = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Deferido", variable=self.var_sr_deferido, bg="white", font=fonte_ent, fg="#15803D", command=self.filtrar_dados).pack(side="left", padx=2)
+        self.var_sr_indeferido = tk.IntVar(value=1)
+        tk.Checkbutton(self.f_row_recursos, text="Indeferido", variable=self.var_sr_indeferido, bg="white", font=fonte_ent, fg="#991B1B", command=self.filtrar_dados).pack(side="left", padx=2)
+        # Oculta por padrão
 
         self.paned = ttk.PanedWindow(self.root, orient="vertical")
         self.paned.pack(fill="both", expand=True, padx=20, pady=(0, 20))
@@ -157,17 +188,17 @@ class SistemaAfastamentos:
 
         self.aba_afast = ttk.Frame(self.abas_main)
         self.aba_gest = ttk.Frame(self.abas_main)
-        self.aba_recursos = ttk.Frame(self.abas_main) # NOVA ABA
+        self.aba_recursos = ttk.Frame(self.abas_main)
 
         self.abas_main.add(self.aba_afast, text=" 🏥 Afastamentos INSS ")
         self.abas_main.add(self.aba_gest, text=" 🤰 Acompanhamento de Gestantes ")
-        self.abas_main.add(self.aba_recursos, text=" ⚖️ Revisão/Recurso/Contestação ") # NOVA ABA ADCIONADA
-        self.abas_main.bind("<<NotebookTabChanged>>", self.limpar_preview_on_tab_change)
+        self.abas_main.add(self.aba_recursos, text=" ⚖️ Revisão/Recurso/Contestação ")
+        self.abas_main.bind("<<NotebookTabChanged>>", self.on_tab_change)
 
         # ------------------ TREEVIEW AFASTAMENTOS ------------------
-        colunas_afast = ("ID", "Empresa", "Nome", "Tipo", "Últ. Dia", "Obrigação", "Status")
+        colunas_afast = ("ID", "Empresa", "Nome", "Tipo", "Recurso", "Últ. Dia", "Obrigação", "Status")
         self.tree = ttk.Treeview(self.aba_afast, columns=colunas_afast, show="headings")
-        larg_afast = [40, 150, 250, 80, 80, 100, 170]
+        larg_afast = [40, 150, 220, 80, 75, 80, 90, 160]
         for col, larg in zip(colunas_afast, larg_afast):
             self.tree.heading(col, text=col, command=lambda _col=col: self.ordenar_coluna(_col, False))
             self.tree.column(col, width=larg, anchor="center" if col not in ["Empresa", "Nome"] else "w")
@@ -213,13 +244,17 @@ class SistemaAfastamentos:
         self.tree_gest.bind("<<TreeviewSelect>>", self.atualizar_preview_gestante)
         self.tree_gest.bind("<Shift-Delete>", self.excluir_gestante)
 
-        # ------------------ TREEVIEW RECURSOS (NOVA) ------------------
-        colunas_rec = ("ID Recurso", "ID Afast.", "Empresa", "Nome", "Tipo Vínculo", "ID Vínculo", "Criado em", "Status")
+        # ------------------ TREEVIEW RECURSOS ------------------
+        colunas_rec = ("ID", "ID Afast.", "Empresa", "Nome", "Origem (Vínculo)", "ID Orig.", "Nº Ben.", "Tipo", "Status", "Últ. Cons.")
         self.tree_rec = ttk.Treeview(self.aba_recursos, columns=colunas_rec, show="headings")
-        larg_rec = [80, 80, 180, 250, 150, 80, 100, 100]
+        larg_rec = [40, 60, 150, 190, 120, 60, 100, 100, 80, 80]
         for col, larg in zip(colunas_rec, larg_rec):
             self.tree_rec.heading(col, text=col)
             self.tree_rec.column(col, width=larg, anchor="center" if col not in ["Empresa", "Nome"] else "w")
+            
+        self.tree_rec.tag_configure('aberto', background='#FFF9C4', foreground='#92400E') 
+        self.tree_rec.tag_configure('deferido', background='#DCFCE7', foreground='#166534')
+        self.tree_rec.tag_configure('indeferido', background='#FEE2E2', foreground='#991B1B')
 
         scroll_rec = ttk.Scrollbar(self.aba_recursos, orient="vertical", command=self.tree_rec.yview)
         self.tree_rec.configure(yscrollcommand=scroll_rec.set)
@@ -227,8 +262,8 @@ class SistemaAfastamentos:
         scroll_rec.pack(side="right", fill="y")
 
         self.tree_rec.bind("<Double-1>", self.abrir_gestao_recurso)
-        self.tree_rec.bind("<<TreeviewSelect>>", self.limpar_preview_on_tab_change)
-        self.tree_rec.bind("<Shift-Delete>", self.excluir_recurso)
+        self.tree_rec.bind("<<TreeviewSelect>>", self.atualizar_preview_recurso)
+        self.tree_rec.bind("<Shift-Delete>", self.excluir_recurso) 
 
         frame_preview = ttk.LabelFrame(self.paned, text=" Pré-visualização e Detalhes Rápidos ", padding=5)
         self.paned.add(frame_preview, weight=1)
@@ -243,6 +278,17 @@ class SistemaAfastamentos:
         
         self.carregar_dados()
         self.root.after(500, self.verificar_lembretes_startup)
+
+    def on_tab_change(self, event):
+        self.limpar_preview()
+        aba_ativa = self.abas_main.index(self.abas_main.select())
+        if aba_ativa == 2:
+            self.f_row2.pack_forget()
+            self.f_row_recursos.pack(fill="x")
+        else:
+            self.f_row_recursos.pack_forget()
+            self.f_row2.pack(fill="x")
+        self.filtrar_dados()
 
     def corrigir_datas_antigas_gestantes(self):
         conn = conectar_db()
@@ -489,7 +535,7 @@ class SistemaAfastamentos:
                 cursor.execute("DELETE FROM cids_historico WHERE id_afastamento=?", (id_registro,))
                 cursor.execute("DELETE FROM analises_inss WHERE id_afastamento=?", (id_registro,))
                 cursor.execute("DELETE FROM pericias_inss WHERE id_afastamento=?", (id_registro,))
-                cursor.execute("DELETE FROM recursos_inss WHERE id_afastamento=?", (id_registro,)) # Apaga tb os recursos
+                cursor.execute("DELETE FROM recursos_inss WHERE id_afastamento=?", (id_registro,)) 
                 cursor.execute("DELETE FROM afastamentos WHERE id=?", (id_registro,))
                 conn.commit()
                 conn.close()
@@ -583,9 +629,18 @@ class SistemaAfastamentos:
         self.var_t_militar.set(1)
         self.var_t_maternidade.set(1)
         self.var_t_outros.set(1)
-        
         self.var_s_ativo.set(1)
         self.var_s_inativo.set(0) 
+
+        self.var_tr_revisao.set(1)
+        self.var_tr_recurso.set(1)
+        self.var_tr_contestacao.set(1)
+        self.var_tr_acao.set(1)
+        self.var_tr_vazio.set(1)
+        self.var_sr_aberto.set(1)
+        self.var_sr_deferido.set(1)
+        self.var_sr_indeferido.set(1)
+
         self.filtrar_dados()
 
     def filtrar_dados(self, event=None):
@@ -619,7 +674,14 @@ class SistemaAfastamentos:
 
         # 1. CARREGA AFASTAMENTOS
         if tipos_sel and status_afast_sel:
-            query_afast = "SELECT id, empresa, nome_empregado, tipo_afastamento, ultimo_dia_trab, data_obrigacao, retornou, obrigacao_concluida, periodo_ate, decimo_sexto_dia, qtd_dias, alerta_16_tratado, alerta_mat_tratado, alerta_retorno_tratado, aposentado FROM afastamentos WHERE 1=1"
+            query_afast = """
+                SELECT id, empresa, nome_empregado, tipo_afastamento, ultimo_dia_trab, 
+                       data_obrigacao, retornou, obrigacao_concluida, periodo_ate, 
+                       decimo_sexto_dia, qtd_dias, alerta_16_tratado, alerta_mat_tratado, 
+                       alerta_retorno_tratado, aposentado,
+                       (SELECT COUNT(id) FROM recursos_inss WHERE id_afastamento=afastamentos.id) as qtd_recursos
+                FROM afastamentos WHERE 1=1
+            """
             params_afast = []
             
             if busca: query_afast += " AND nome_empregado LIKE ?"; params_afast.append(f'%{busca}%')
@@ -638,10 +700,11 @@ class SistemaAfastamentos:
             cursor.execute(query_afast, params_afast)
             
             for linha in cursor.fetchall():
-                id_af, empresa, nome, tipo_afastamento, ult_dia, data_obrig_str, retornou, obrig_tratada, periodo_ate_str, decimo_sexto_dia, qtd_dias_str, alerta_16_trat_val, alerta_mat_trat_val, alerta_retorno_trat_val, aposentado_val = linha
+                id_af, empresa, nome, tipo_afastamento, ult_dia, data_obrig_str, retornou, obrig_tratada, periodo_ate_str, decimo_sexto_dia, qtd_dias_str, alerta_16_trat_val, alerta_mat_trat_val, alerta_retorno_trat_val, aposentado_val, qtd_recursos = linha
                 
                 status_texto = "⚠ Afastado"
                 tag = 'afastado' 
+                texto_recurso = "⚖️ Sim" if qtd_recursos and int(qtd_recursos) > 0 else "-"
                 
                 tem_alerta_maternidade = False
                 msg_alerta_mat = ""
@@ -735,7 +798,7 @@ class SistemaAfastamentos:
                         elif data_obj == hoje_obj: tag = 'hoje'     
                     except ValueError: pass 
 
-                self.tree.insert("", "end", values=(id_af, empresa, nome, tipo_afastamento, ult_dia, data_obrig_str, status_texto), tags=(tag,))
+                self.tree.insert("", "end", values=(id_af, empresa, nome, tipo_afastamento, texto_recurso, ult_dia, data_obrig_str, status_texto), tags=(tag,))
 
         # 2. CARREGA GESTANTES
         if "Maternidade" in tipos_sel:
@@ -773,27 +836,66 @@ class SistemaAfastamentos:
 
                     self.tree_gest.insert("", "end", values=(linha[0], linha[1], linha[2], status_g, linha[4], linha[5], linha[6], linha[7]), tags=(tag_g,))
 
-        # 3. CARREGA RECURSOS (NOVO CRUZAMENTO DE DADOS)
-        query_rec = """
-            SELECT r.id, r.id_afastamento, a.empresa, a.nome_empregado, r.tipo_vinculo, r.id_vinculo, r.data_criacao, r.status
-            FROM recursos_inss r
-            JOIN afastamentos a ON r.id_afastamento = a.id
-            WHERE 1=1
-        """
-        params_rec = []
-        if busca: query_rec += " AND a.nome_empregado LIKE ?"; params_rec.append(f'%{busca}%')
-        if empresa_filtro: query_rec += " AND a.empresa LIKE ?"; params_rec.append(f'%{empresa_filtro}%')
-        
-        query_rec += " ORDER BY r.id DESC"
-        cursor.execute(query_rec, params_rec)
-        
-        for linha in cursor.fetchall():
-            self.tree_rec.insert("", "end", values=linha)
+        # 3. CARREGA RECURSOS COM FILTROS ESPECÍFICOS
+        tipos_rec_sel = []
+        inc_null = False
+        if self.var_tr_revisao.get(): tipos_rec_sel.append("Revisão")
+        if self.var_tr_recurso.get(): tipos_rec_sel.append("Recurso")
+        if self.var_tr_contestacao.get(): tipos_rec_sel.append("Contestação")
+        if self.var_tr_acao.get(): tipos_rec_sel.append("Ação Judicial")
+        if self.var_tr_vazio.get(): 
+            tipos_rec_sel.append("")
+            inc_null = True
+
+        status_rec_sel = []
+        if self.var_sr_aberto.get(): status_rec_sel.append("Aberto")
+        if self.var_sr_deferido.get(): status_rec_sel.append("Deferido")
+        if self.var_sr_indeferido.get(): status_rec_sel.append("Indeferido")
+
+        if tipos_rec_sel and status_rec_sel:
+            query_rec = """
+                SELECT r.id, r.id_afastamento, a.empresa, a.nome_empregado, r.tipo_vinculo, r.id_vinculo, 
+                       COALESCE(an.numero_beneficio, pe.numero_beneficio, '-') as numero_beneficio,
+                       r.tipo_recurso, r.status, r.ultima_consulta
+                FROM recursos_inss r
+                JOIN afastamentos a ON r.id_afastamento = a.id
+                LEFT JOIN analises_inss an ON r.tipo_vinculo = 'Análise Documental' AND r.id_vinculo = an.id
+                LEFT JOIN pericias_inss pe ON r.tipo_vinculo = 'Perícia Presencial' AND r.id_vinculo = pe.id
+                WHERE 1=1
+            """
+            params_rec = []
+            if busca: query_rec += " AND a.nome_empregado LIKE ?"; params_rec.append(f'%{busca}%')
+            if empresa_filtro: query_rec += " AND a.empresa LIKE ?"; params_rec.append(f'%{empresa_filtro}%')
+            
+            qmarks_tr = ",".join("?" for _ in tipos_rec_sel)
+            if inc_null:
+                query_rec += f" AND (r.tipo_recurso IN ({qmarks_tr}) OR r.tipo_recurso IS NULL)"
+            else:
+                query_rec += f" AND r.tipo_recurso IN ({qmarks_tr})"
+            params_rec.extend(tipos_rec_sel)
+
+            qmarks_sr = ",".join("?" for _ in status_rec_sel)
+            query_rec += f" AND r.status IN ({qmarks_sr})"
+            params_rec.extend(status_rec_sel)
+            
+            query_rec += " ORDER BY r.id DESC"
+            cursor.execute(query_rec, params_rec)
+            
+            for linha in cursor.fetchall():
+                id_rec, id_af, emp, nome, tvinc, idvinc, nben, trec, st, ucons = linha
+                
+                trec_show = trec if trec else "Não Definido"
+                ucons_show = ucons if ucons else "-"
+                nben_show = nben if nben else "-"
+                
+                tag_r = 'aberto' if st == 'Aberto' else ('deferido' if st == 'Deferido' else 'indeferido')
+                
+                self.tree_rec.insert("", "end", values=(id_rec, id_af, emp, nome, tvinc, idvinc, nben_show, trec_show, st, ucons_show), tags=(tag_r,))
 
         conn.close()
         self.limpar_preview()
 
-    def limpar_preview(self):
+    def limpar_preview(self, event=None):
         self.txt_preview.config(state="normal")
         self.txt_preview.delete("1.0", tk.END)
         self.txt_preview.insert("1.0", "\n  Selecione um registo na tabela para visualizar os detalhes.")
@@ -935,6 +1037,52 @@ class SistemaAfastamentos:
         self.txt_preview.config(state="disabled")
         self.txt_historico.config(state="disabled")
 
+    def atualizar_preview_recurso(self, event):
+        selecionado = self.tree_rec.selection()
+        if not selecionado: return self.limpar_preview()
+            
+        valores = self.tree_rec.item(selecionado[0], "values")
+        id_recurso = valores[0]
+
+        self.txt_preview.config(state="normal")
+        self.txt_preview.delete("1.0", tk.END)
+        self.txt_historico.config(state="normal")
+        self.txt_historico.delete("1.0", tk.END)
+
+        conn = conectar_db()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT r.*, a.empresa, a.nome_empregado
+            FROM recursos_inss r
+            JOIN afastamentos a ON r.id_afastamento = a.id
+            WHERE r.id = ?
+        """
+        cursor.execute(query, (id_recurso,))
+        linha = cursor.fetchone()
+        conn.close()
+
+        if linha:
+            texto = f"⚖️ GESTÃO DE RECURSO / REVISÃO / CONTESTAÇÃO (ID: {linha['id']})\n"
+            texto += f"----------------------------------------------------------------------\n"
+            texto += f"   Empresa: {linha['empresa']} | Funcionário: {linha['nome_empregado']}\n"
+            texto += f"   Origem Vinculada: {linha['tipo_vinculo']} (ID: {linha['id_vinculo']})\n\n"
+            
+            texto += f"📅 ANDAMENTO DO PROCESSO\n"
+            texto += f"   Criado em: {linha['data_criacao'] or '-'}\n"
+            texto += f"   Última Consulta: {linha['ultima_consulta'] or '-'}\n"
+            texto += f"   Tipo: {linha['tipo_recurso'] or 'Não Definido'}\n"
+            texto += f"   Status Atual: {linha['status'] or '-'}\n\n"
+
+            obs = linha['observacoes'] if 'observacoes' in linha.keys() and str(linha['observacoes']).strip() != "" else "Nenhuma observação registada."
+            texto += f"📝 OBSERVAÇÕES E HISTÓRICO:\n   {obs}\n"
+
+            self.txt_preview.insert("1.0", texto)
+
+        self.txt_preview.config(state="disabled")
+        self.txt_historico.config(state="disabled")
+
     def ordenar_coluna(self, col, reverse):
         l = [(self.tree.set(k, col), k) for k in self.tree.get_children('')]
         if col in ("Últ. Dia", "Obrigação"):
@@ -965,8 +1113,7 @@ class SistemaAfastamentos:
         if not selec: return
         valores = self.tree_rec.item(selec[0], "values")
         id_recurso = valores[0]
-        # Aqui ficará o código para abrir a nova tela de detalhe/edição do recurso!
-        messagebox.showinfo("Em Breve", f"A tela de gestão detalhada do Recurso ID {id_recurso} será implementada em seguida!", parent=self.root)
+        TelaManutencaoRevisao(self.root, id_recurso, self.carregar_dados)
 
 if __name__ == "__main__":
     if not os.path.exists('afastamentos.db'): inicializar_db()

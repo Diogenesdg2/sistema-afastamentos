@@ -156,6 +156,17 @@ def inicializar_db():
     if 'data_analise_pericia' not in col_per:
         cursor.execute("ALTER TABLE pericias_inss ADD COLUMN data_analise_pericia TEXT DEFAULT ''")
 
+    # Migração para a tabela de Recursos
+    cursor.execute("PRAGMA table_info(recursos_inss)")
+    col_rec = [col[1] for col in cursor.fetchall()]
+    if 'ultima_consulta' not in col_rec:
+        cursor.execute("ALTER TABLE recursos_inss ADD COLUMN ultima_consulta TEXT DEFAULT ''")
+    if 'tipo_recurso' not in col_rec:
+        cursor.execute("ALTER TABLE recursos_inss ADD COLUMN tipo_recurso TEXT DEFAULT ''")
+    if 'observacoes' not in col_rec:
+        cursor.execute("ALTER TABLE recursos_inss ADD COLUMN observacoes TEXT DEFAULT ''")
+    
+    
     conn.commit()
     conn.close()
 

@@ -615,9 +615,9 @@ class TelaManutencao:
         self.ent_aq_ate = tk.Entry(self.frame_aq_box, width=12, font=fonte_entry, relief="solid", bd=1, state="readonly", justify="center")
         self.ent_aq_ate.grid(row=1, column=3, sticky="w", padx=5)
 
-        tk.Label(frame_esq, text="Observações Gerais:", bg="white", font=fonte_label).grid(row=7, column=0, columnspan=4, sticky="w", pady=(4, 2))
-        self.txt_obs = tk.Text(frame_esq, width=65, height=4, font=fonte_entry, relief="solid", bd=1)
-        self.txt_obs.grid(row=8, column=0, columnspan=4, sticky="w")
+        tk.Label(frame_esq, text="Observações Gerais:", bg="white", font=fonte_label).grid(row=7, column=0, columnspan=4, sticky="w", pady=(15, 2))
+        self.txt_obs = tk.Text(frame_esq, width=65, height=18, font=fonte_entry, relief="solid", bd=1)
+        self.txt_obs.grid(row=8, column=0, columnspan=4, sticky="w", pady=(0, 10))
 
         frame_box = ttk.LabelFrame(frame_dir, text=" Período Total do Afastamento ", padding=12)
         frame_box.pack(fill="x", pady=(0, 10))
