@@ -1,0 +1,17 @@
+# Ignorar o Banco de Dados (Segurança)
+*.db
+*.sqlite3
+afastamento.db
+_afastamentos.db
+afastamentos - Copia.db
+
+# Ignorar o Ambiente Virtual
+venv/
+env/
+
+# Ignorar ficheiros temporários do Python
+__pycache__/
+*.pyc
+
+# Ignorar PDFs gerados temporariamente pelos testes
+*.pdf
