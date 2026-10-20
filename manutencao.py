@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, simpledialog, filedialog
 from tkcalendar import DateEntry
 from datetime import datetime, timedelta
 from perda_ferias import emitir_termo_ferias
+from recurso import TelaRecurso
 import json
 import os
 import csv
@@ -157,7 +158,12 @@ class TelaManutencao:
 
         btn_salvar = tk.Button(frame_botoes, text="💾 Salvar Todas as Alterações", command=self.salvar_alteracoes, 
                                bg="#10B981", fg="white", font=("Segoe UI", 11, "bold"), padx=40, pady=8, relief="flat", cursor="hand2")
-        btn_salvar.pack()
+        btn_salvar.pack(side="left", padx=(0, 10))
+        
+        # O botão CADASTRAR RECURSO fica ao lado do Salvar
+        btn_recurso = tk.Button(frame_botoes, text="📋 CADASTRAR Recurso/Revisão/Contestação", command=self.abrir_modal_recurso, 
+                               bg="#F59E0B", fg="white", font=("Segoe UI", 11, "bold"), padx=20, pady=8, relief="flat", cursor="hand2")
+        btn_recurso.pack(side="left")
 
         self.preencher_dados()
         self.janela.deiconify() 
@@ -439,154 +445,6 @@ class TelaManutencao:
                     fg="#15803D"
                 )
 
-    def salvar_alteracoes(self):
-        motivo = self.combo_motivo.get()
-        if self.var_retornou.get() == 1 and motivo == "Acidente":
-            if self.combo_hiscre.get() not in ["Sim", "Não"]:
-                return messagebox.showwarning("Aviso", "Em caso de acidente é OBRIGATÓRIO informar se o HISCRE foi tirado.", parent=self.janela)
-
-        old_nome, old_empresa = self.dados['nome_empregado'], self.dados['empresa']
-        pwd_plana = self.ent_senha_gov.get()
-        pwd_enc = encriptar_senha(pwd_plana) if pwd_plana else ""
-
-        ret_str = self.ent_ret_data.get().strip()
-        per_de_str = self.ent_per_de.get().strip()
-        per_ate_str = self.ent_per_ate.get().strip()
-        dias_str = self.ent_dias.get().strip()
-
-        # Se for Cárcere ou Militar e tiver Data de Retorno preenchida, fecha automaticamente
-        if motivo in ["Cárcere", "Militar"] and len(ret_str) == 10:
-            try:
-                ret_dt = datetime.strptime(ret_str, "%d/%m/%Y").date()
-                fim_afast_dt = ret_dt - timedelta(days=1)
-                
-                if not per_de_str and self.ent_ult_dia.get().strip():
-                    ult_dt = datetime.strptime(self.ent_ult_dia.get().strip(), "%d/%m/%Y").date()
-                    per_de_str = (ult_dt + timedelta(days=1)).strftime("%d/%m/%Y")
-
-                if per_de_str:
-                    ini_dt = datetime.strptime(per_de_str, "%d/%m/%Y").date()
-                    if fim_afast_dt >= ini_dt:
-                        per_ate_str = fim_afast_dt.strftime("%d/%m/%Y")
-                        dias_str = str((fim_afast_dt - ini_dt).days + 1)
-            except ValueError:
-                pass
-
-        dias_val = int(dias_str) if dias_str.isdigit() else 0
-        if dias_val > 15:
-            self.var_ctrl_ferias.set(1)
-
-        ctrl_ferias = self.var_ctrl_ferias.get()
-        aq_de = self.ent_aq_de.get().strip() if ctrl_ferias == 1 else ""
-        aq_ate = self.ent_aq_ate.get().strip() if ctrl_ferias == 1 else ""
-        is_aposentado = str(self.var_aposentado.get()) in ("1", "Sim", "True")
-        
-        tela_novo_de = self.ent_novo_aq_de.get().strip()
-        tela_novo_ate = self.ent_novo_aq_ate.get().strip()
-        
-        novo_aq_de = ""
-        novo_aq_ate = ""
-
-        if ctrl_ferias == 1 and len(tela_novo_de) == 10:
-            if self.dias_beneficio_aquisitivo >= 180 or motivo in ["Cárcere", "Militar"]:
-                novo_aq_de = tela_novo_de
-                novo_aq_ate = tela_novo_ate
-                
-            elif is_aposentado and dias_val > 30 and motivo in ["Doença", "Acidente", "Outros"]:
-                considerar_novo = messagebox.askyesno(
-                    "Confirmação de Período Aquisitivo",
-                    f"O cálculo indica que o novo período aquisitivo iniciará em {tela_novo_de}.\n\n"
-                    f"Deseja gravar este novo período aquisitivo na base de dados?\n"
-                    f"(Clique em 'Não' para manter o período aquisitivo original)",
-                    parent=self.janela
-                )
-                if considerar_novo:
-                    novo_aq_de = tela_novo_de
-                    novo_aq_ate = tela_novo_ate
-                else:
-                    self.ent_novo_aq_de.config(state="normal")
-                    self.ent_novo_aq_de.delete(0, tk.END)
-                    self.ent_novo_aq_ate.config(state="normal")
-                    self.ent_novo_aq_ate.delete(0, tk.END)
-                    self.ent_novo_aq_ate.config(state="readonly")
-            else:
-                 novo_aq_de = tela_novo_de
-                 novo_aq_ate = tela_novo_ate
-
-        if ctrl_ferias == 1 and (not aq_de or len(aq_de) != 10):
-            messagebox.showwarning("Aviso", "Como o afastamento é superior a 15 dias, é obrigatório preencher o 'Início Per. Aquisitivo' para o controle de Férias.", parent=self.janela)
-            self.notebook.select(self.aba_resumo)
-            return
-
-        try:
-            conn = conectar_db()
-            cursor = conn.cursor()
-
-            if motivo == "Cárcere" and len(ret_str) == 10 and per_de_str and per_ate_str and dias_val > 0:
-                cursor.execute("SELECT id FROM atestados_historico WHERE id_afastamento=? ORDER BY id ASC", (self.id_registro,))
-                hist_rows = cursor.fetchall()
-                if not hist_rows:
-                    cursor.execute(
-                        "INSERT INTO atestados_historico (id_afastamento, data_de, data_ate, qtd_dias, observacoes) VALUES (?, ?, ?, ?, ?)",
-                        (self.id_registro, per_de_str, per_ate_str, dias_val, "Período de reclusão (fechado no retorno)")
-                    )
-                elif len(hist_rows) == 1:
-                    cursor.execute(
-                        "UPDATE atestados_historico SET data_de=?, data_ate=?, qtd_dias=? WHERE id=?",
-                        (per_de_str, per_ate_str, dias_val, hist_rows[0][0])
-                    )
-
-            cursor.execute('''
-                UPDATE afastamentos SET
-                    empresa=?, cod_empresa=?, cod_empregado=?, nome_empregado=?, tipo_afastamento=?, 
-                    ultimo_dia_trab=?, periodo_de=?, periodo_ate=?, qtd_dias=?,
-                    data_obrigacao=?, obrigacao_concluida=?,
-                    decimo_sexto_dia=?, retornou=?, retorno_data=?, estabilidade=?, 
-                    observacoes=?, hiscre=?, gov_br_autorizacao=?, gov_br_senha=?, cpf=?, 
-                    aposentado=?, domestica=?, alerta_16_tratado=?, alerta_mat_tratado=?, alerta_retorno_tratado=?,
-                    aborto=?, data_nascimento=?, salario_familia=?, salario_familia_obs=?, imposto_renda=?, imposto_renda_obs=?,
-                    controlar_ferias=?, per_aquisitivo_de=?, per_aquisitivo_ate=?,
-                    novo_per_aquisitivo_de=?, novo_per_aquisitivo_ate=?, alerta_ferias_tratado=?
-                WHERE id=?
-            ''', (
-                self.ent_empresa.get().strip(), self.ent_cod_empresa.get().strip(), self.ent_cod_func.get().strip(), self.ent_nome.get().strip(), motivo,
-                self.ent_ult_dia.get(), per_de_str, per_ate_str, dias_str,
-                self.ent_obrigacao.get(), self.var_obrig_concluida.get(),
-                self.ent_16dia.get(), self.var_retornou.get(), ret_str, self.ent_estab.get(), 
-                self.txt_obs.get("1.0", tk.END).strip(), self.combo_hiscre.get(), self.combo_gov.get(), 
-                pwd_enc, self.ent_cpf.get(), self.var_aposentado.get(), self.var_domestica.get(), 
-                self.var_alerta_16.get(), self.var_alerta_mat.get(), self.var_alerta_retorno.get(),
-                self.var_aborto.get(), 
-                self.ent_data_nasc.get() if motivo == "Maternidade" else "",
-                self.combo_sal_fam.get() if motivo == "Maternidade" else "",
-                self.ent_obs_sal_fam.get().strip() if motivo == "Maternidade" else "",
-                self.combo_imp_renda.get() if motivo == "Maternidade" else "",
-                self.ent_obs_imp_renda.get().strip() if motivo == "Maternidade" else "",
-                ctrl_ferias, aq_de, aq_ate, novo_aq_de, novo_aq_ate, self.var_alerta_ferias.get(),
-                self.id_registro
-            ))
-
-            if motivo == "Maternidade":
-                cursor.execute('''
-                    UPDATE gestantes SET empresa=?, cod_empresa=?, cod_empregado=?, nome_empregado=?
-                    WHERE nome_empregado=? AND empresa=?
-                ''', (self.ent_empresa.get().strip(), self.ent_cod_empresa.get().strip(), self.ent_cod_func.get().strip(), self.ent_nome.get().strip(), old_nome, old_empresa))
-
-            conn.commit()
-            conn.close()
-
-            if ctrl_ferias == 1 and aq_de and self.var_retornou.get() == 0:
-                sincronizar_aquisitivo_funcionario(
-                    self.ent_cpf.get().strip(), self.ent_cod_empresa.get().strip(),
-                    self.ent_cod_func.get().strip(), ctrl_ferias, aq_de, aq_ate
-                )
-            
-            messagebox.showinfo("Sucesso", "Registo atualizado com sucesso!", parent=self.janela)
-            self.callback_atualizar()
-            self.janela.destroy()
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao atualizar: {str(e)}", parent=self.janela)
-
     def atualizar_fim_novo_aquisitivo(self, event=None):
         dt_de = self.ent_novo_aq_de.get().strip()
         dt_ate = calcular_fim_aquisitivo(dt_de)
@@ -655,48 +513,6 @@ class TelaManutencao:
         conn.commit()
         conn.close()
         self.callback_atualizar()
-
-    def sincronizar_com_beneficio(self, tipo):
-        tree = self.tree_an if tipo == 'analise' else self.tree_per
-        selec = tree.selection()
-        if not selec:
-            return messagebox.showwarning("Aviso", "Selecione uma linha na tabela acima para poder sincronizar.", parent=self.janela)
-
-        valores = tree.item(selec[0], "values")
-        num_beneficio = valores[3] if tipo == 'analise' else valores[5]
-        situacao = valores[4] if tipo == 'analise' else valores[6]
-        concessao_ate = valores[6] if tipo == 'analise' else valores[8]
-
-        if situacao not in ["Concedido", "Concedida"]:
-            return messagebox.showwarning("Aviso", "Apenas benefícios com situação 'Concedido' podem gerar extensão de atestado.", parent=self.janela)
-        if not concessao_ate or concessao_ate == "-":
-            return messagebox.showwarning("Aviso", "O benefício selecionado não possui Data Final (Até).", parent=self.janela)
-
-        data_atual_str = self.ent_per_ate.get().strip()
-        if not data_atual_str:
-            return messagebox.showwarning("Aviso", "O afastamento não possui uma data final atual para usar como base.", parent=self.janela)
-
-        try:
-            dt_atual_fim = datetime.strptime(data_atual_str, "%d/%m/%Y")
-            dt_nova_fim = datetime.strptime(concessao_ate, "%d/%m/%Y")
-            if dt_nova_fim <= dt_atual_fim:
-                return messagebox.showinfo("Aviso", f"O benefício ({concessao_ate}) não é posterior ao término atual ({data_atual_str}).", parent=self.janela)
-
-            dt_novo_inicio = dt_atual_fim + timedelta(days=1)
-            dias_extensao = (dt_nova_fim - dt_novo_inicio).days + 1
-            if dias_extensao > 0:
-                str_novo_inicio = dt_novo_inicio.strftime("%d/%m/%Y")
-                obs = f"Ajuste de data segundo beneficio nº {num_beneficio}" if num_beneficio and num_beneficio != "-" else "Ajuste de data segundo beneficio INSS"
-                if messagebox.askyesno("Confirmar Sincronização", f"Gerar atestado de ajuste do dia {str_novo_inicio} até {concessao_ate} ({dias_extensao} dias)?", parent=self.janela):
-                    conn = conectar_db()
-                    conn.cursor().execute("INSERT INTO atestados_historico (id_afastamento, data_de, data_ate, qtd_dias, observacoes) VALUES (?, ?, ?, ?, ?)", 
-                                          (self.id_registro, str_novo_inicio, concessao_ate, dias_extensao, obs))
-                    conn.commit()
-                    conn.close()
-                    self.sincronizar_totais_afastamento()
-                    messagebox.showinfo("Sucesso", "Afastamento estendido com sucesso!", parent=self.janela)
-        except ValueError:
-            messagebox.showerror("Erro", "Erro ao processar as datas.", parent=self.janela)
 
     def construir_aba_resumo(self):
         f = self.aba_resumo
@@ -1209,12 +1025,13 @@ class TelaManutencao:
 
         tk.Button(f_an2, text="Lançar Análise", command=self.adicionar_analise, bg="#4CAF50", fg="white", font=("Segoe UI", 8, "bold"), relief="flat", cursor="hand2").pack(side="left", padx=10)
 
-        # ---------------- 2. PERÍCIAS INSS ----------------
+        # ---------------- 2. PERÍCIAS INSS (ATUALIZADO) ----------------
         box_per = ttk.LabelFrame(f, text=" Histórico de Perícias e Concessões INSS ", padding=10)
         box_per.pack(fill="both", expand=True, padx=20, pady=5)
 
-        self.tree_per = ttk.Treeview(box_per, columns=("ID", "Análise Mãe", "Agend.", "Atend.", "Espécie", "Benefício", "Situação", "De", "Até", "Dias"), show="headings", height=4)
-        for col, w in zip(["ID", "Análise Mãe", "Agend.", "Atend.", "Espécie", "Benefício", "Situação", "De", "Até", "Dias"], [30, 90, 80, 80, 70, 110, 90, 80, 80, 60]):
+        # Nova coluna "Dt. Anál." adicionada com larguras redimensionadas para caber
+        self.tree_per = ttk.Treeview(box_per, columns=("ID", "Análise Mãe", "Dt. Anál.", "Agend.", "Atend.", "Espécie", "Benefício", "Situação", "De", "Até", "Dias"), show="headings", height=4)
+        for col, w in zip(["ID", "Análise Mãe", "Dt. Anál.", "Agend.", "Atend.", "Espécie", "Benefício", "Situação", "De", "Até", "Dias"], [30, 80, 75, 75, 75, 60, 100, 80, 75, 75, 50]):
             self.tree_per.heading(col, text=col)
             self.tree_per.column(col, width=w, anchor="center" if col != "Benefício" else "w")
         self.tree_per.pack(fill="x", pady=(0, 5))
@@ -1231,15 +1048,21 @@ class TelaManutencao:
 
         f_p1 = tk.Frame(box_per, bg="white")
         f_p1.pack(fill="x", pady=2)
-        tk.Label(f_p1, text="Análise Mãe (Origem):", bg="white", font=fonte_label, fg="#EC4899").pack(side="left")
-        self.combo_per_mae = ttk.Combobox(f_p1, width=25, state="readonly", font=fonte_entry)
-        self.combo_per_mae.pack(side="left", padx=(5, 25))
+        tk.Label(f_p1, text="Análise Mãe:", bg="white", font=fonte_label, fg="#EC4899").pack(side="left")
+        self.combo_per_mae = ttk.Combobox(f_p1, width=18, state="readonly", font=fonte_entry)
+        self.combo_per_mae.pack(side="left", padx=(5, 10))
+        
+        # NOVO CAMPO: Data de Análise
+        tk.Label(f_p1, text="Dt. Análise:", bg="white", font=fonte_label).pack(side="left")
+        self.ent_per_dt_analise = self.criar_calendario(f_p1, width=11)
+        self.ent_per_dt_analise.pack(side="left", padx=(5, 10))
+
         tk.Label(f_p1, text="Agendamento:", bg="white", font=fonte_label).pack(side="left")
-        self.ent_per_agend = self.criar_calendario(f_p1, width=12)
-        self.ent_per_agend.pack(side="left", padx=(5, 15))
+        self.ent_per_agend = self.criar_calendario(f_p1, width=11)
+        self.ent_per_agend.pack(side="left", padx=(5, 10))
         tk.Label(f_p1, text="Atendimento:", bg="white", font=fonte_label).pack(side="left")
-        self.ent_per_atend = self.criar_calendario(f_p1, width=12)
-        self.ent_per_atend.pack(side="left", padx=(5, 15))
+        self.ent_per_atend = self.criar_calendario(f_p1, width=11)
+        self.ent_per_atend.pack(side="left", padx=(5, 10))
         
         f_p2 = tk.Frame(box_per, bg="white")
         f_p2.pack(fill="x", pady=(5, 0))
@@ -1323,21 +1146,23 @@ class TelaManutencao:
         self.combo_per_mae['values'] = lista_combobox
         self.lbl_total_an.config(text=f"Total de Dias Concedidos: {total_an_dias}")
         
-        cursor.execute("SELECT id, id_analise_mae, data_agendamento, data_atendimento, especie, numero_beneficio, situacao, concessao_de, concessao_ate FROM pericias_inss WHERE id_afastamento=? ORDER BY id ASC", (self.id_registro,))
+        # Trazendo agora o campo data_analise_pericia
+        cursor.execute("SELECT id, id_analise_mae, data_analise_pericia, data_agendamento, data_atendimento, especie, numero_beneficio, situacao, concessao_de, concessao_ate FROM pericias_inss WHERE id_afastamento=? ORDER BY id ASC", (self.id_registro,))
         total_per_dias = 0
 
         for p in cursor.fetchall():
             dias_val = "-"
-            if p[6] in ("Concedido", "Concedida") and p[7] and p[8]:
+            if p[8] in ("Concedido", "Concedida") and p[9] and p[10]:
                 try:
-                    dias = (datetime.strptime(p[8], "%d/%m/%Y") - datetime.strptime(p[7], "%d/%m/%Y")).days + 1
+                    dias = (datetime.strptime(p[10], "%d/%m/%Y") - datetime.strptime(p[9], "%d/%m/%Y")).days + 1
                     if dias > 0:
                         dias_val = str(dias)
                         total_per_dias += dias
                 except ValueError: pass
 
             mae_texto = f"Análise #{p[1]}" if p[1] else "-"
-            self.tree_per.insert("", "end", values=(p[0], mae_texto, p[2], p[3], p[4], p[5], p[6], p[7], p[8], dias_val))
+            # values = (ID, Análise Mãe, Dt. Análise, Agendamento, Atendimento, Espécie, Benefício, Situação, De, Até, Dias)
+            self.tree_per.insert("", "end", values=(p[0], mae_texto, p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], dias_val))
             
         self.lbl_total_per.config(text=f"Total de Dias Concedidos: {total_per_dias}")
         conn.close()
@@ -1389,6 +1214,7 @@ class TelaManutencao:
 
     def adicionar_pericia(self):
         id_mae = self.map_analises_mae.get(self.combo_per_mae.get(), None)
+        dt_analise = self.ent_per_dt_analise.get()
         agend, atend, esp, ben, sit, cde, cate = self.ent_per_agend.get(), self.ent_per_atend.get(), self.ent_per_esp.get(), self.ent_per_ben.get(), self.combo_per_sit.get(), self.ent_per_cde.get(), self.ent_per_cate.get()
         if sit in ["Concedido", "Concedida"] and cde and cate:
             try:
@@ -1406,12 +1232,12 @@ class TelaManutencao:
             except ValueError: return messagebox.showwarning("Erro", "Datas de concessão inválidas.", parent=self.janela)
 
         conn = conectar_db()
-        conn.cursor().execute("INSERT INTO pericias_inss (id_afastamento, id_analise_mae, data_agendamento, data_atendimento, especie, numero_beneficio, situacao, concessao_de, concessao_ate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-                              (self.id_registro, id_mae, agend, atend, esp, ben, sit, cde, cate))
+        conn.cursor().execute("INSERT INTO pericias_inss (id_afastamento, id_analise_mae, data_analise_pericia, data_agendamento, data_atendimento, especie, numero_beneficio, situacao, concessao_de, concessao_ate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                              (self.id_registro, id_mae, dt_analise, agend, atend, esp, ben, sit, cde, cate))
         conn.commit()
         conn.close()
         self.combo_per_mae.set("")
-        for w in [self.ent_per_agend, self.ent_per_atend, self.ent_per_esp, self.ent_per_ben, self.ent_per_cde, self.ent_per_cate]: w.delete(0, tk.END)
+        for w in [self.ent_per_dt_analise, self.ent_per_agend, self.ent_per_atend, self.ent_per_esp, self.ent_per_ben, self.ent_per_cde, self.ent_per_cate]: w.delete(0, tk.END)
         self.combo_per_sit.set("")
         self.carregar_listas_inss()
 
@@ -1529,14 +1355,14 @@ class TelaManutencao:
         id_pericia = self.tree_per.item(selec[0], "values")[0]
         conn = conectar_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT id_analise_mae, data_agendamento, data_atendimento, especie, numero_beneficio, situacao, concessao_de, concessao_ate FROM pericias_inss WHERE id=?", (id_pericia,))
+        cursor.execute("SELECT id_analise_mae, data_analise_pericia, data_agendamento, data_atendimento, especie, numero_beneficio, situacao, concessao_de, concessao_ate FROM pericias_inss WHERE id=?", (id_pericia,))
         dados_p = cursor.fetchone()
         conn.close()
         if not dados_p: return
         
         jan = tk.Toplevel(self.janela)
         jan.title(f"Editar Perícia INSS | ID: {id_pericia}")
-        jan.geometry("550x420")
+        jan.geometry("580x420")
         jan.grab_set()
         jan.configure(bg="#F3F4F6")
         box = ttk.LabelFrame(jan, text=" Detalhes da Perícia ", padding=20)
@@ -1548,23 +1374,29 @@ class TelaManutencao:
         cb_mae = ttk.Combobox(box, state="readonly", font=("Segoe UI", 9), values=list(self.map_analises_mae.keys()))
         cb_mae.grid(row=0, column=1, columnspan=3, sticky="ew", pady=(0, 10))
 
-        tk.Label(box, text="Agendamento:", bg="white", font=fonte_lbl).grid(row=1, column=0, sticky="w", pady=(0, 10))
+        tk.Label(box, text="Data Análise:", bg="white", font=fonte_lbl).grid(row=1, column=0, sticky="w", pady=(0, 10))
+        ent_dt_analise = self.criar_calendario(box, width=15)
+        ent_dt_analise.grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=(0, 10))
+
+        tk.Label(box, text="Agendamento:", bg="white", font=fonte_lbl).grid(row=1, column=2, sticky="w", pady=(0, 10))
         ent_agend = self.criar_calendario(box, width=15)
-        ent_agend.grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=(0, 10))
-        tk.Label(box, text="Atendimento:", bg="white", font=fonte_lbl).grid(row=1, column=2, sticky="w", pady=(0, 10))
+        ent_agend.grid(row=1, column=3, sticky="ew", pady=(0, 10))
+        
+        tk.Label(box, text="Atendimento:", bg="white", font=fonte_lbl).grid(row=2, column=0, sticky="w", pady=(0, 10))
         ent_atend = self.criar_calendario(box, width=15)
-        ent_atend.grid(row=1, column=3, sticky="ew", pady=(0, 10))
+        ent_atend.grid(row=2, column=1, sticky="ew", padx=(0, 10), pady=(0, 10))
 
-        tk.Label(box, text="Espécie:", bg="white", font=fonte_lbl).grid(row=2, column=0, sticky="w", pady=(0, 10))
+        tk.Label(box, text="Espécie:", bg="white", font=fonte_lbl).grid(row=2, column=2, sticky="w", pady=(0, 10))
         ent_esp = tk.Entry(box, font=("Segoe UI", 9), relief="solid", bd=1)
-        ent_esp.grid(row=2, column=1, sticky="ew", padx=(0, 10), pady=(0, 10))
-        tk.Label(box, text="Nº Benefício:", bg="white", font=fonte_lbl).grid(row=2, column=2, sticky="w", pady=(0, 10))
-        ent_ben = tk.Entry(box, font=("Segoe UI", 9), relief="solid", bd=1)
-        ent_ben.grid(row=2, column=3, sticky="ew", pady=(0, 10))
+        ent_esp.grid(row=2, column=3, sticky="ew", pady=(0, 10))
 
-        tk.Label(box, text="Situação:", bg="white", font=fonte_lbl).grid(row=3, column=0, sticky="w", pady=(0, 10))
+        tk.Label(box, text="Nº Benefício:", bg="white", font=fonte_lbl).grid(row=3, column=0, sticky="w", pady=(0, 10))
+        ent_ben = tk.Entry(box, font=("Segoe UI", 9), relief="solid", bd=1)
+        ent_ben.grid(row=3, column=1, sticky="ew", padx=(0, 10), pady=(0, 10))
+
+        tk.Label(box, text="Situação:", bg="white", font=fonte_lbl).grid(row=3, column=2, sticky="w", pady=(0, 10))
         cb_sit = ttk.Combobox(box, values=["", "Concedida", "Negada", "Em Análise"], state="readonly", font=("Segoe UI", 9))
-        cb_sit.grid(row=3, column=1, columnspan=3, sticky="ew", pady=(0, 10))
+        cb_sit.grid(row=3, column=3, sticky="ew", pady=(0, 10))
 
         ttk.Separator(box, orient="horizontal").grid(row=4, column=0, columnspan=4, sticky="ew", pady=15)
 
@@ -1577,13 +1409,14 @@ class TelaManutencao:
 
         rev_map = {v: k for k, v in self.map_analises_mae.items()}
         cb_mae.set(rev_map.get(dados_p[0], ""))
-        self.preencher_data_segura(ent_agend, dados_p[1])
-        self.preencher_data_segura(ent_atend, dados_p[2])
-        ent_esp.insert(0, dados_p[3] or "")
-        ent_ben.insert(0, dados_p[4] or "")
-        cb_sit.set(dados_p[5] or "")
-        self.preencher_data_segura(ent_cde, dados_p[6])
-        self.preencher_data_segura(ent_cate, dados_p[7])
+        self.preencher_data_segura(ent_dt_analise, dados_p[1])
+        self.preencher_data_segura(ent_agend, dados_p[2])
+        self.preencher_data_segura(ent_atend, dados_p[3])
+        ent_esp.insert(0, dados_p[4] or "")
+        ent_ben.insert(0, dados_p[5] or "")
+        cb_sit.set(dados_p[6] or "")
+        self.preencher_data_segura(ent_cde, dados_p[7])
+        self.preencher_data_segura(ent_cate, dados_p[8])
 
         def sav_per():
             cde_val, cate_val, sit_val = ent_cde.get(), ent_cate.get(), cb_sit.get()
@@ -1604,14 +1437,17 @@ class TelaManutencao:
             
             id_m = self.map_analises_mae.get(cb_mae.get(), None)
             conn = conectar_db()
-            conn.cursor().execute("UPDATE pericias_inss SET id_analise_mae=?, data_agendamento=?, data_atendimento=?, especie=?, numero_beneficio=?, situacao=?, concessao_de=?, concessao_ate=? WHERE id=?", 
-                                  (id_m, ent_agend.get(), ent_atend.get(), ent_esp.get(), ent_ben.get(), sit_val, cde_val, cate_val, id_pericia))
+            conn.cursor().execute("UPDATE pericias_inss SET id_analise_mae=?, data_analise_pericia=?, data_agendamento=?, data_atendimento=?, especie=?, numero_beneficio=?, situacao=?, concessao_de=?, concessao_ate=? WHERE id=?", 
+                                  (id_m, ent_dt_analise.get(), ent_agend.get(), ent_atend.get(), ent_esp.get(), ent_ben.get(), sit_val, cde_val, cate_val, id_pericia))
             conn.commit()
             conn.close()
             self.carregar_listas_inss()
             jan.destroy()
 
         tk.Button(jan, text="💾 Guardar Alterações", command=sav_per, bg="#3B82F6", fg="white", font=("Segoe UI", 10, "bold"), relief="flat", pady=5, padx=20).pack(pady=(0, 20))
+
+    def abrir_modal_recurso(self):
+        TelaRecurso(self.janela, self.id_registro, self.ent_empresa.get(), self.ent_nome.get())
 
     # ================= ABA 4: RETORNO E NOVO PERÍODO AQUISITIVO =================
     def construir_aba_retorno(self):
@@ -2120,3 +1956,45 @@ class TelaManutencao:
         conn.commit()
         conn.close()
         self.callback_atualizar()
+
+    def sincronizar_com_beneficio(self, tipo):
+        tree = self.tree_an if tipo == 'analise' else self.tree_per
+        selec = tree.selection()
+        if not selec:
+            return messagebox.showwarning("Aviso", "Selecione uma linha na tabela acima para poder sincronizar.", parent=self.janela)
+
+        valores = tree.item(selec[0], "values")
+        num_beneficio = valores[3] if tipo == 'analise' else valores[5]
+        situacao = valores[4] if tipo == 'analise' else valores[6]
+        concessao_ate = valores[6] if tipo == 'analise' else valores[8]
+
+        if situacao not in ["Concedido", "Concedida"]:
+            return messagebox.showwarning("Aviso", "Apenas benefícios com situação 'Concedido' podem gerar extensão de atestado.", parent=self.janela)
+        if not concessao_ate or concessao_ate == "-":
+            return messagebox.showwarning("Aviso", "O benefício selecionado não possui Data Final (Até).", parent=self.janela)
+
+        data_atual_str = self.ent_per_ate.get().strip()
+        if not data_atual_str:
+            return messagebox.showwarning("Aviso", "O afastamento não possui uma data final atual para usar como base.", parent=self.janela)
+
+        try:
+            dt_atual_fim = datetime.strptime(data_atual_str, "%d/%m/%Y")
+            dt_nova_fim = datetime.strptime(concessao_ate, "%d/%m/%Y")
+            if dt_nova_fim <= dt_atual_fim:
+                return messagebox.showinfo("Aviso", f"O benefício ({concessao_ate}) não é posterior ao término atual ({data_atual_str}).", parent=self.janela)
+
+            dt_novo_inicio = dt_atual_fim + timedelta(days=1)
+            dias_extensao = (dt_nova_fim - dt_novo_inicio).days + 1
+            if dias_extensao > 0:
+                str_novo_inicio = dt_novo_inicio.strftime("%d/%m/%Y")
+                obs = f"Ajuste de data segundo beneficio nº {num_beneficio}" if num_beneficio and num_beneficio != "-" else "Ajuste de data segundo beneficio INSS"
+                if messagebox.askyesno("Confirmar Sincronização", f"Gerar atestado de ajuste do dia {str_novo_inicio} até {concessao_ate} ({dias_extensao} dias)?", parent=self.janela):
+                    conn = conectar_db()
+                    conn.cursor().execute("INSERT INTO atestados_historico (id_afastamento, data_de, data_ate, qtd_dias, observacoes) VALUES (?, ?, ?, ?, ?)", 
+                                          (self.id_registro, str_novo_inicio, concessao_ate, dias_extensao, obs))
+                    conn.commit()
+                    conn.close()
+                    self.sincronizar_totais_afastamento()
+                    messagebox.showinfo("Sucesso", "Afastamento estendido com sucesso!", parent=self.janela)
+        except ValueError:
+            messagebox.showerror("Erro", "Erro ao processar as datas.", parent=self.janela)

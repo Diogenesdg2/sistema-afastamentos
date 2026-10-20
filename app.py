@@ -157,11 +157,14 @@ class SistemaAfastamentos:
 
         self.aba_afast = ttk.Frame(self.abas_main)
         self.aba_gest = ttk.Frame(self.abas_main)
+        self.aba_recursos = ttk.Frame(self.abas_main) # NOVA ABA
 
         self.abas_main.add(self.aba_afast, text=" 🏥 Afastamentos INSS ")
         self.abas_main.add(self.aba_gest, text=" 🤰 Acompanhamento de Gestantes ")
+        self.abas_main.add(self.aba_recursos, text=" ⚖️ Revisão/Recurso/Contestação ") # NOVA ABA ADCIONADA
         self.abas_main.bind("<<NotebookTabChanged>>", self.limpar_preview_on_tab_change)
 
+        # ------------------ TREEVIEW AFASTAMENTOS ------------------
         colunas_afast = ("ID", "Empresa", "Nome", "Tipo", "Últ. Dia", "Obrigação", "Status")
         self.tree = ttk.Treeview(self.aba_afast, columns=colunas_afast, show="headings")
         larg_afast = [40, 150, 250, 80, 80, 100, 170]
@@ -177,9 +180,7 @@ class SistemaAfastamentos:
         self.tree.tag_configure('alerta_maternidade', background='#F3E8FF', foreground='#7E22CE')
         self.tree.tag_configure('alerta_16dia', background='#FFEDD5', foreground='#C2410C')
         self.tree.tag_configure('alerta_prorrogacao', background='#E0F2FE', foreground='#0284C7')
-        # Alterado para azul (Checar Retorno)
         self.tree.tag_configure('alerta_retorno', background='#DBEAFE', foreground='#1E40AF')
-        # Nova cor para Aguardando data de retorno (Cárcere / Militar)
         self.tree.tag_configure('aguardando_retorno', background="#9AA09F", foreground="#3B4140")
 
         scroll_afast = ttk.Scrollbar(self.aba_afast, orient="vertical", command=self.tree.yview)
@@ -191,6 +192,7 @@ class SistemaAfastamentos:
         self.tree.bind("<<TreeviewSelect>>", self.atualizar_preview)
         self.tree.bind("<Shift-Delete>", self.excluir_funcionario_oculto)
 
+        # ------------------ TREEVIEW GESTANTES ------------------
         colunas_gest = ("ID", "Empresa", "Nome", "Status", "Exame", "Semanas", "Prev. Parto (40 Sem.)", "Estabilidade")
         self.tree_gest = ttk.Treeview(self.aba_gest, columns=colunas_gest, show="headings")
         larg_gest = [40, 150, 220, 80, 80, 70, 120, 100]
@@ -210,6 +212,23 @@ class SistemaAfastamentos:
         self.tree_gest.bind("<Double-1>", self.abrir_manutencao_gestante)
         self.tree_gest.bind("<<TreeviewSelect>>", self.atualizar_preview_gestante)
         self.tree_gest.bind("<Shift-Delete>", self.excluir_gestante)
+
+        # ------------------ TREEVIEW RECURSOS (NOVA) ------------------
+        colunas_rec = ("ID Recurso", "ID Afast.", "Empresa", "Nome", "Tipo Vínculo", "ID Vínculo", "Criado em", "Status")
+        self.tree_rec = ttk.Treeview(self.aba_recursos, columns=colunas_rec, show="headings")
+        larg_rec = [80, 80, 180, 250, 150, 80, 100, 100]
+        for col, larg in zip(colunas_rec, larg_rec):
+            self.tree_rec.heading(col, text=col)
+            self.tree_rec.column(col, width=larg, anchor="center" if col not in ["Empresa", "Nome"] else "w")
+
+        scroll_rec = ttk.Scrollbar(self.aba_recursos, orient="vertical", command=self.tree_rec.yview)
+        self.tree_rec.configure(yscrollcommand=scroll_rec.set)
+        self.tree_rec.pack(side="left", fill="both", expand=True)
+        scroll_rec.pack(side="right", fill="y")
+
+        self.tree_rec.bind("<Double-1>", self.abrir_gestao_recurso)
+        self.tree_rec.bind("<<TreeviewSelect>>", self.limpar_preview_on_tab_change)
+        self.tree_rec.bind("<Shift-Delete>", self.excluir_recurso)
 
         frame_preview = ttk.LabelFrame(self.paned, text=" Pré-visualização e Detalhes Rápidos ", padding=5)
         self.paned.add(frame_preview, weight=1)
@@ -470,6 +489,7 @@ class SistemaAfastamentos:
                 cursor.execute("DELETE FROM cids_historico WHERE id_afastamento=?", (id_registro,))
                 cursor.execute("DELETE FROM analises_inss WHERE id_afastamento=?", (id_registro,))
                 cursor.execute("DELETE FROM pericias_inss WHERE id_afastamento=?", (id_registro,))
+                cursor.execute("DELETE FROM recursos_inss WHERE id_afastamento=?", (id_registro,)) # Apaga tb os recursos
                 cursor.execute("DELETE FROM afastamentos WHERE id=?", (id_registro,))
                 conn.commit()
                 conn.close()
@@ -493,6 +513,25 @@ class SistemaAfastamentos:
                 self.carregar_dados()
             except Exception as e: messagebox.showerror("Erro", f"Erro ao apagar:\n{str(e)}", parent=self.root)
 
+    def excluir_recurso(self, event):
+        selecionado = self.tree_rec.selection()
+        if not selecionado: return
+        
+        valores = self.tree_rec.item(selecionado[0], "values")
+        id_recurso = valores[0]
+        nome_func = valores[3]
+        
+        if messagebox.askyesno("Exclusão", f"Deseja apagar definitivamente o Recurso/Revisão (ID: {id_recurso}) do funcionário '{nome_func}'?", parent=self.root):
+            try:
+                conn = conectar_db()
+                conn.cursor().execute("DELETE FROM recursos_inss WHERE id=?", (id_recurso,))
+                conn.commit()
+                conn.close()
+                self.carregar_dados()
+                messagebox.showinfo("Sucesso", "Recurso apagado com sucesso!", parent=self.root)
+            except Exception as e: 
+                messagebox.showerror("Erro", f"Erro ao apagar:\n{str(e)}", parent=self.root)
+
     def exportar_pdf(self):
         aba_ativa = self.abas_main.index(self.abas_main.select())
         if aba_ativa == 0: 
@@ -507,6 +546,8 @@ class SistemaAfastamentos:
             if not ids_tabela: return messagebox.showwarning("Aviso", "A tabela de Gestantes está vazia.")
             arquivo = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("Documento PDF", "*.pdf")], initialfile=f"Relatorio_Gestantes_{datetime.now().strftime('%d%m%Y')}.pdf")
             if arquivo: gerar_pdf_gestantes(ids_tabela, arquivo)
+        else:
+            messagebox.showinfo("Aviso", "Exportação para Recursos ainda não implementada.")
 
     def exportar_excel(self):
         aba_ativa = self.abas_main.index(self.abas_main.select())
@@ -522,6 +563,8 @@ class SistemaAfastamentos:
             if not ids_tabela: return messagebox.showwarning("Aviso", "A tabela de Gestantes está vazia.")
             arquivo = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Documento Excel", "*.xlsx")], initialfile=f"Relatorio_Gestantes_{datetime.now().strftime('%d%m%Y')}.xlsx")
             if arquivo: gerar_excel_gestantes(ids_tabela, arquivo)
+        else:
+            messagebox.showinfo("Aviso", "Exportação para Recursos ainda não implementada.")
 
     def filtrar_hoje(self):
         self.ent_data_filtro.set_date(datetime.now())
@@ -551,6 +594,7 @@ class SistemaAfastamentos:
     def carregar_dados(self):
         for item in self.tree.get_children(): self.tree.delete(item)
         for item in self.tree_gest.get_children(): self.tree_gest.delete(item)
+        for item in self.tree_rec.get_children(): self.tree_rec.delete(item)
             
         busca = self.ent_busca.get().strip()
         empresa_filtro = self.ent_empresa_filtro.get().strip()
@@ -573,6 +617,7 @@ class SistemaAfastamentos:
 
         hoje_obj = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
+        # 1. CARREGA AFASTAMENTOS
         if tipos_sel and status_afast_sel:
             query_afast = "SELECT id, empresa, nome_empregado, tipo_afastamento, ultimo_dia_trab, data_obrigacao, retornou, obrigacao_concluida, periodo_ate, decimo_sexto_dia, qtd_dias, alerta_16_tratado, alerta_mat_tratado, alerta_retorno_tratado, aposentado FROM afastamentos WHERE 1=1"
             params_afast = []
@@ -617,7 +662,6 @@ class SistemaAfastamentos:
                 try: qtd_dias = int(qtd_dias_str)
                 except (ValueError, TypeError): qtd_dias = 999 
 
-                # Cárcere, Militar e Maternidade não possuem Análise Documental do 16º dia
                 if retornou == 0 and tipo_afastamento not in ("Cárcere", "Militar", "Maternidade") and decimo_sexto_dia and qtd_dias > 15 and not alerta_16_trat_val and str(aposentado_val) not in ("1", "Sim", "True"):
                     try:
                         dt_16 = datetime.strptime(decimo_sexto_dia, "%d/%m/%Y").date()
@@ -729,6 +773,23 @@ class SistemaAfastamentos:
 
                     self.tree_gest.insert("", "end", values=(linha[0], linha[1], linha[2], status_g, linha[4], linha[5], linha[6], linha[7]), tags=(tag_g,))
 
+        # 3. CARREGA RECURSOS (NOVO CRUZAMENTO DE DADOS)
+        query_rec = """
+            SELECT r.id, r.id_afastamento, a.empresa, a.nome_empregado, r.tipo_vinculo, r.id_vinculo, r.data_criacao, r.status
+            FROM recursos_inss r
+            JOIN afastamentos a ON r.id_afastamento = a.id
+            WHERE 1=1
+        """
+        params_rec = []
+        if busca: query_rec += " AND a.nome_empregado LIKE ?"; params_rec.append(f'%{busca}%')
+        if empresa_filtro: query_rec += " AND a.empresa LIKE ?"; params_rec.append(f'%{empresa_filtro}%')
+        
+        query_rec += " ORDER BY r.id DESC"
+        cursor.execute(query_rec, params_rec)
+        
+        for linha in cursor.fetchall():
+            self.tree_rec.insert("", "end", values=linha)
+
         conn.close()
         self.limpar_preview()
 
@@ -800,7 +861,6 @@ class SistemaAfastamentos:
             gov_auth = linha['gov_br_autorizacao'] if 'gov_br_autorizacao' in linha.keys() and linha['gov_br_autorizacao'] else "-"
             cpf_val = linha['cpf'] if 'cpf' in linha.keys() and linha['cpf'] else "-"
             
-            # --- Controle de Férias no Preview ---
             ferias_info = "Desativado"
             if 'controlar_ferias' in linha.keys() and linha['controlar_ferias'] == 1 and linha['per_aquisitivo_de']:
                 dias_f, _ = calcular_dias_beneficio_aquisitivo(cpf_val, linha['cod_empresa'], linha['cod_empregado'], linha['per_aquisitivo_de'], linha['per_aquisitivo_ate'], linha['id'])
@@ -899,6 +959,14 @@ class SistemaAfastamentos:
         selec = self.tree_gest.selection()
         if not selec: return
         TelaManutencaoGestante(self.root, self.tree_gest.item(selec[0], "values")[0], self.carregar_dados)
+        
+    def abrir_gestao_recurso(self, event):
+        selec = self.tree_rec.selection()
+        if not selec: return
+        valores = self.tree_rec.item(selec[0], "values")
+        id_recurso = valores[0]
+        # Aqui ficará o código para abrir a nova tela de detalhe/edição do recurso!
+        messagebox.showinfo("Em Breve", f"A tela de gestão detalhada do Recurso ID {id_recurso} será implementada em seguida!", parent=self.root)
 
 if __name__ == "__main__":
     if not os.path.exists('afastamentos.db'): inicializar_db()

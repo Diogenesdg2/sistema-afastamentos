@@ -60,6 +60,7 @@ def inicializar_db():
         )
     ''')
     
+    # 3. TABELA: ATESTADOS (PRORROGAÇÕES)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS atestados_historico (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,6 +70,7 @@ def inicializar_db():
         )
     ''')
 
+    # 4. TABELA: CIDS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cids_historico (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,6 +79,7 @@ def inicializar_db():
         )
     ''')
 
+    # 5. TABELA: ANÁLISES INSS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS analises_inss (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,12 +91,27 @@ def inicializar_db():
         )
     ''')
 
+    # 6. TABELA: PERÍCIAS INSS
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pericias_inss (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             id_afastamento INTEGER, id_analise_mae INTEGER,
+            data_analise_pericia TEXT DEFAULT '',
             data_agendamento TEXT, data_atendimento TEXT, especie TEXT,
             numero_beneficio TEXT, situacao TEXT, concessao_de TEXT, concessao_ate TEXT,
+            FOREIGN KEY(id_afastamento) REFERENCES afastamentos(id)
+        )
+    ''')
+    
+    # 7. TABELA: RECURSOS/REVISÃO/CONTESTAÇÃO (NOVA TABELA)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS recursos_inss (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_afastamento INTEGER,
+            tipo_vinculo TEXT, 
+            id_vinculo INTEGER, 
+            data_criacao TEXT,
+            status TEXT DEFAULT 'Aberto',
             FOREIGN KEY(id_afastamento) REFERENCES afastamentos(id)
         )
     ''')
@@ -131,6 +149,12 @@ def inicializar_db():
     col_an = [col[1] for col in cursor.fetchall()]
     if 'prorrogacao_tratada' not in col_an:
         cursor.execute("ALTER TABLE analises_inss ADD COLUMN prorrogacao_tratada INTEGER DEFAULT 0")
+
+    # Migração para garantir que o campo data_analise_pericia entra na tabela existente
+    cursor.execute("PRAGMA table_info(pericias_inss)")
+    col_per = [col[1] for col in cursor.fetchall()]
+    if 'data_analise_pericia' not in col_per:
+        cursor.execute("ALTER TABLE pericias_inss ADD COLUMN data_analise_pericia TEXT DEFAULT ''")
 
     conn.commit()
     conn.close()
