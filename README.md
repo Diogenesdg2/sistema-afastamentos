@@ -1,41 +1,69 @@
-🏢 Sistema de Gestão de Afastamentos e Férias
-Um sistema desktop completo desenvolvido em Python para o departamento pessoal, focado no gerenciamento de afastamentos de colaboradores, controle de perícias do INSS e monitoramento automatizado do direito a férias (Art. 133 da CLT). Criado para otimizar rotinas de recursos humanos e contabilidade, o sistema garante segurança de dados e emissão de documentos legais com um clique.
+# 🏥 Sistema de Controle de Afastamentos e Gestantes INSS
 
-🚀 Principais Funcionalidades
-Gestão de Afastamentos: Cadastro e acompanhamento de múltiplos tipos de licenças (Doença, Acidente, Maternidade, Cárcere, Serviço Militar e Outros).
+![Python](https://img.shields.io/badge/Python-3.x-blue.svg)
+![Tkinter](https://img.shields.io/badge/GUI-Tkinter-lightgrey.svg)
+![SQLite](https://img.shields.io/badge/Database-SQLite3-green.svg)
+![ReportLab](https://img.shields.io/badge/PDF-ReportLab-red.svg)
 
-Termômetro de Férias (Art. 133 CLT): Monitoramento automático da soma de dias de benefício concedidos pelo INSS. O sistema alerta quando o colaborador atinge 180 dias de afastamento e projeta automaticamente o novo período aquisitivo.
+Sistema desktop desenvolvido em Python para otimizar o fluxo do Departamento Pessoal e RH, focando no controle rigoroso de afastamentos previdenciários, acompanhamento de licenças-maternidade e gestão de recursos e contestações junto ao INSS.
 
-Tratamento de Exceções Legais: Lógica dedicada para colaboradores Aposentados (que não perdem o direito a férias da mesma forma) e cálculos de estabilidade.
+O sistema elimina o controle manual em planilhas ao cruzar datas, gerar alertas de prazos críticos (como o 16º dia, risco de perda de férias e retornos), e automatizar a geração de termos de autorização e relatórios.
 
-Central de Lembretes: Pop-ups matinais automáticos para alertar sobre o 16º dia de afastamento, fim de licença-maternidade e verificação de retorno ao trabalho.
+---
 
-Acompanhamento INSS: Módulo para gerir Análises Documentais e Perícias Médicas Presenciais, permitindo sincronizar a extensão dos atestados diretamente com os benefícios deferidos.
+## ✨ Funcionalidades Principais
 
-Geração Automática de Documentos: Emissão nativa de PDFs parametrizados, como o Termo de Perda de Férias e o Termo de Autorização de Acesso GOV.BR, prontos para assinatura.
+* **Gestão de Afastamentos:** Controle completo de atestados, motivos (Doença, Acidente, Maternidade, etc.), CIDs, e histórico de perícias médicas.
+* **Acompanhamento de Gestantes:** Cálculo automatizado da projeção da 40ª semana de gestação e acompanhamento do período de estabilidade.
+* **Gestão de Recursos e Contestações:** Módulo dedicado para gerir defesas, revisões e ações judiciais, mantendo histórico de andamentos e status (Aberto, Deferido, Indeferido).
+* **Painel de Lembretes Inteligente (Resumo Matinal):** Pop-up automático na inicialização e sob demanda que cruza regras trabalhistas para alertar sobre:
+  * 🚨 Prazo para agendamento de perícia (16º dia).
+  * ⚠️ Risco de perda de direito a férias (Art. 133 da CLT - limite de 180 dias).
+  * ⏳ Vencimento de prorrogações de benefícios.
+  * 👶 Entrada na 37ª semana de gestação ou vencimento de licença-maternidade.
+  * ⚖️ Processos de recurso sem movimentação há mais de 30 dias.
+* **Geração de Documentos (PDF):** Emissão automatizada do *Termo de Autorização GOV.BR* com preenchimento exato e alinhamento visual de dados do funcionário.
+* **Exportação e Relatórios:** Geração de relatórios filtrados em PDF e planilhas Excel (XLSX).
+* **Filtros Dinâmicos:** Pesquisa rápida em tempo real por nome, empresa, tipos de afastamento e status ativo/baixado.
 
-🛠️ Tecnologias Utilizadas
-Python 3.x: Linguagem principal da aplicação.
+---
 
-Tkinter & ttk: Construção da Interface Gráfica de Usuário (GUI).
+## 💻 Tecnologias e Bibliotecas Utilizadas
 
-tkcalendar: Componentes visuais para seleção intuitiva de datas.
+* **Python 3:** Linguagem base do projeto.
+* **Tkinter & ttk:** Construção da Interface Gráfica de Usuário (GUI).
+* **SQLite3:** Banco de dados relacional embutido e leve (sem necessidade de servidor externo).
+* **ReportLab:** Geração dinâmica dos documentos e relatórios em PDF com formatação de precisão.
+* **tkcalendar:** Componentes visuais para seleção e formatação de datas.
+* **PyInstaller:** Compilação do código fonte para um executável `.exe` independente.
 
-SQLite3: Banco de dados relacional leve e embutido para persistência de registros.
+---
 
-ReportLab: Biblioteca para a geração e formatação avançada de documentos PDF.
+## 📂 Estrutura do Projeto
 
-📂 Estrutura do Projeto
-app.py: Arquivo principal de inicialização e interface raiz do sistema.
+A arquitetura do projeto foi dividida em módulos lógicos para facilitar a manutenção e escalabilidade:
 
-manutencao.py: Módulo central de regras de negócio, interface de abas (Resumo, Acompanhamento, INSS, Retorno) e manipulação do banco de dados.
+```text
+afastamentos-inss/
+├── app.py                     # Arquivo principal, dashboard, grids e lógica de alertas.
+├── database.py                # Inicialização do banco, queries genéricas e migrações.
+├── cadastro.py                # Tela de inserção de novos afastamentos.
+├── gestante.py                # Tela de inserção de novas gestantes.
+├── manutencao.py              # Tela principal de edição do afastamento e histórico de atestados/INSS.
+├── manutencao_gestante.py     # Tela de edição e encerramento do ciclo da gestante.
+├── manutencao_revisao.py      # Módulo isolado para gestão de Recursos, Revisões e Ações Judiciais.
+├── relatorio.py               # Motor de exportação de dados para PDF e Excel.
+├── importar.py                # Rotinas de importação de planilhas/dados externos.
+├── requirements.txt           # Lista de dependências do projeto.
+└── README.md                  # Documentação do projeto.
+````
 
-perda_ferias.py: Motor de cálculo de meses/dias comerciais e gerador dinâmico de PDFs usando ReportLab.
+👤 Autor
+Diógenes Daniel Gomes
 
-database.py: Gerenciamento de conexões, queries SQLite e cálculos centralizados de prazos.
+Profissional de Tecnologia que trabalha em um escritório de contabilidade
 
-🔒 Segurança e Privacidade de Dados (LGPD)
-Este projeto lida com dados sensíveis de colaboradores (nomes, CPFs, laudos médicos, CIDs e senhas criptografadas). Por medidas rigorosas de segurança e adequação à LGPD, o arquivo do banco de dados (.db / .sqlite3) está estritamente ignorado no controle de versão via .gitignore.
+GitHub: @Diogenesdg2
 
-Ao clonar este repositório, o sistema inicializará um banco de dados local novo e vazio na primeira execução. Nenhum dado real de empresa ou funcionário é exposto neste código-fonte.
+Desenvolvido como solução interna para modernização e automação de processos do Departamento Pessoal.
 
